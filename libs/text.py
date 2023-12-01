@@ -2,7 +2,7 @@ import pygame
 from pygame.locals import *
 
 class Text():
-    def __init__(self,x,y,text,size,color,font="assets/font.ttf") -> None:
+    def __init__(self,x,y,text,size,color,font="assets/font.ttf",bg_color=None) -> None:
         self.ttext = text
         self.color = color
         self.x = x
@@ -10,7 +10,11 @@ class Text():
         self.tfont = font
         self.size = size
         self.font = pygame.font.Font(self.tfont, self.size)
-        self.text = self.font.render(self.ttext,False,self.color)
+        self.text = None
+        if bg_color == None:
+            self.text = self.font.render(self.ttext,False,self.color)
+        else:
+            self.text = self.font.render(self.ttext,False,self.color,bg_color)
         self.text_rect = self.text.get_rect()
         self.text_rect.topleft = (self.x,self.y)
 
@@ -22,6 +26,18 @@ class Text():
 
     def draw(self,surf,scroll=(0,0)):
         surf.blit(self.text, (self.text_rect.x - scroll[0],self.text_rect.y - scroll[1]))
+
+    def on_clicked(self,event, scroll=[0,0]):
+        mouse_pos = pygame.mouse.get_pos()
+
+        returnstat = False
+
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:
+                if self.text_rect.collidepoint((mouse_pos[0]+scroll[0]),(mouse_pos[1]+scroll[1])):
+                    returnstat = True
+
+        return returnstat
 
 class TypeBar:
     def __init__(self,x,y):

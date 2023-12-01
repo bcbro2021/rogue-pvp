@@ -14,6 +14,11 @@ class Game:
         self.win = pygame.display.set_mode((WIN_WIDTH,WIN_HEIGHT))
         pygame.display.set_caption(WIN_TITLE)
         self.clock = pygame.time.Clock()
+        self.scene = "game"
+
+        # death scene
+        self.death_text = Text(WIN_WIDTH/2-75,WIN_HEIGHT/2-50,"YOU DIED!",48,(255,255,255))
+        self.respawn_btn = Text(WIN_WIDTH/2-50,WIN_HEIGHT/2,"RESPAWN",32,(20,20,20),bg_color=(255,255,255))
 
         # multiplayer stuff
         self.id = sys.argv[1]
@@ -65,6 +70,11 @@ class Game:
         for obj in sorted(self.objs,key = lambda sprite: sprite.rect.centery):
             obj.draw(self.win,self.player.scroll) # other objs like bushes
 
+        ####### death menu stuff
+        if self.scene == "death":
+            self.death_text.draw(self.win)
+            self.respawn_btn.draw(self.win)
+
     def send_player_data(self):
         data = {"id": self.id, 
                 "x": self.player.rect.x, 
@@ -78,58 +88,66 @@ class Game:
         self.client.send(data)
 
     def update(self):
-        #reset the objs
-        self.objs = []
-    
-        self.player.update(self.ctiles)
-        
+        # game scene
+        if self.scene == "game":
+            #reset the objs
+            self.objs = []
 
-        # data to be sent
-        self.send_player_data()
+            self.player.update(self.ctiles)
 
-        # get data from other clients
-        messages = self.client.get_messages()
-        if len(messages) != 0:
-            for message in messages:
-                message = json.loads(message)
-                for key, item in message.items():
-                    # gettings the puppet of the other players
-                    data = message[key]
+            # data to be sent
+            self.send_player_data()
 
-                    # set the data for the players
-                    if data["id"] != self.id:
-                        self.player_datas[data["id"]] = data
+            # get data from other clients
+            messages = self.client.get_messages()
+            if len(messages) != 0:
+                for message in messages:
+                    message = json.loads(message)
+                    for key, item in message.items():
+                        # gettings the puppet of the other players
+                        data = message[key]
 
-                    if data["id"] != self.id:
-                        self.players[data["id"]] = Entity(self.player_datas[data["id"]]["x"],
-                                                        self.player_datas[data["id"]]["y"])
-                        self.players[data["id"]].id = data["id"]
-                    
-                    # animating the other players using the local player frames
-                    if data["id"] != self.id:
-                        self.players[data["id"]].img = self.player.animator.animations[self.player_datas[data["id"]]["current_anim"]][self.player_datas[data["id"]]["frame"]]
+                        # set the data for the players
+                        if data["id"] != self.id:
+                            self.player_datas[data["id"]] = data
+
+                        if data["id"] != self.id:
+                            self.players[data["id"]] = Entity(self.player_datas[data["id"]]["x"],
+                                                            self.player_datas[data["id"]]["y"])
+                            self.players[data["id"]].id = data["id"]
+                        
+                        # animating the other players using the local player frames
+                        if data["id"] != self.id:
+                            self.players[data["id"]].img = self.player.animator.animations[self.player_datas[data["id"]]["current_anim"]][self.player_datas[data["id"]]["frame"]]
+                
+            # update the objs
+            for key in self.players: # delete player from players dictionary if dead
+                if self.player_datas[key]["health"] <= 0:
+                    del self.players[key]
+                    del self.player_datas[key]
+                    break
+
+            multi_players = []
+            for key in self.players:
+                multi_players.append(self.players[key])
             
-        # update the objs
-        for key in self.players: # delete player from players dictionary if dead
-            if self.player_datas[key]["health"] <= 0:
-                del self.players[key]
-                del self.player_datas[key]
-                break
+            if self.player.health > 0: # only add player to the objs group if alive
+                self.objs.append(self.player)
+            self.objs.extend(multi_players)
+            self.objs.extend(self.bushes)
 
-        multi_players = []
-        for key in self.players:
-            multi_players.append(self.players[key])
-        
-        if self.player.health > 0: # only add player to the objs group if alive
-            self.objs.append(self.player)
-        self.objs.extend(multi_players)
-        self.objs.extend(self.bushes)
+            # player damage and attack system
+            for key in self.players:
+                if self.player.rect.colliderect(self.players[key].rect):
+                    if self.player_datas[key]["attack"]:
+                        self.player.health -= self.player_datas[key]["damage"]
 
-        # player damage and attack system
-        for key in self.players:
-            if self.player.rect.colliderect(self.players[key].rect):
-                if self.player_datas[key]["attack"]:
-                    self.player.health -= self.player_datas[key]["damage"]
+            # show death scene if dead
+            if self.player.health <= 0:
+                self.scene = "death"
+        # death scene
+        elif self.scene == "death":
+            self.send_player_data()
 
     def events(self,event):
         if event.type == QUIT:
@@ -142,3 +160,7 @@ class Game:
 
         # this allows the player to attack other players
         self.player.attack_event(event)
+
+        if self.respawn_btn.on_clicked(event):
+            self.player.health = self.player.def_health
+            self.scene = "game"
