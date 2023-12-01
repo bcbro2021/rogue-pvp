@@ -5,6 +5,7 @@ from .player import *
 from .assets import *
 from .client import *
 from .helper import *
+from .text import *
 import json
 
 class Game:
@@ -81,6 +82,7 @@ class Game:
         self.objs = []
     
         self.player.update(self.ctiles)
+        
 
         # data to be sent
         self.send_player_data()
