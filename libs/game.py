@@ -16,7 +16,7 @@ class Game:
 
         # multiplayer stuff
         self.id = sys.argv[1]
-        self.client = Client("25.50.20.170", 1234, 1234, int(sys.argv[2]))
+        self.client = Client("127.0.0.1", 1234, 1234, int(sys.argv[2]))
         self.rooms = self.client.get_rooms()
         self.uuid = self.client.register()
         self.client.autojoin()
